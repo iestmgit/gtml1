@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>محیط برنامه نویسی GTML</title>
+    <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+    
+    <style>
+        body {
+            font-family: Tahoma, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        .header {
+            background-color: #333;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .config-panel {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .main-container {
+            display: flex;
+            gap: 20px;
+            height: 500px;
+        }
+        #blocklyDiv {
+            flex: 2;
+            height: 100%;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        #previewContainer {
+            flex: 1;
+            height: 100%;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+        }
+        .preview-title {
+            background: #ddd;
+            padding: 10px;
+            margin: 0;
+            font-size: 14px;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+        #previewFrame {
+            flex: 1;
+            border: none;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>به محیط GTML خوش آمدید!</h1>
+        <p>بلوک‌ها را بکشید تا صفحه وب شما ساخته شود.</p>
+    </div>
+
+    <div class="config-panel">
+        <h3>تنظیمات اولیه صفحه:</h3>
+        <label>رنگ پس‌زمینه (BG): </label>
+        <input type="color" id="bgColor" value="#ffffff">
+        
+        <label style="margin-right: 20px;">رنگ متن (FG): </label>
+        <input type="color" id="fgColor" value="#000000">
+    </div>
+
+    <div class="main-container">
+        <div id="blocklyDiv"></div>
+
+        <div id="previewContainer">
+            <h4 class="preview-title">پیش‌نمایش زنده وب‌سایت شما:</h4>
+            <iframe id="previewFrame"></iframe>
+        </div>
+    </div>
+
+    <xml id="toolbox" style="display: none">
+        <category name="متن و تیتر" colour="#5b67a5">
+            <block type="html_h1"></block>
+            <block type="html_p"></block>
+        </category>
+    </xml>
+
+    <script>
+        // ۱. تعریف ساختار و ظاهر بلوک‌های جدید HTML
+        Blockly.Blocks['html_h1'] = {
+            init: function() {
+                this.appendDummyInput()
+                    .appendField("تیتر بزرگ (H1):")
+                    .appendField(new Blockly.FieldTextInput("سلام دنیا"), "TEXT");
+                this.setPreviousStatement(true, null);
+                this.setNextStatement(true, null);
+                this.setColour(230);
+            }
+        };
+
+        Blockly.Blocks['html_p'] = {
+            init: function() {
+                this.appendDummyInput()
+                    .appendField("پاراگراف متن (P):")
+                    .appendField(new Blockly.FieldTextInput("این یک متن نمونه است."), "TEXT");
+                this.setPreviousStatement(true, null);
+                this.setNextStatement(true, null);
+                this.setColour(160);
+            }
+        };
+
+        // ۲. ساخت موتور تولید کننده کد برای بلوک‌ها
+        const htmlGenerator = new Blockly.Generator('HTML');
+        
+        htmlGenerator['html_h1'] = function(block) {
+            const text = block.getFieldValue('TEXT');
+            return '<h1>' + text + '</h1>\n';
+        };
+
+        htmlGenerator['html_p'] = function(block) {
+            const text = block.getFieldValue('TEXT');
+            return '<p>' + text + '</p>\n';
+        };
+
+        // دقت کنید که Blockly به صورت پیش‌فرض اتصالات بالا به پایین را به هم می‌چسباند
+        htmlGenerator.scrub_ = function(block, code, thisOnly) {
+            const nextBlock = block.getNextBlock();
+            const nextCode = nextBlock ? htmlGenerator.blockToCode(nextBlock) : '';
+            return code + nextCode;
+        };
+
+        // ۳. راه‌اندازی محیط Blockly در صفحه
+        const workspace = Blockly.inject('blocklyDiv', {
+            toolbox: document.getElementById('toolbox'),
+            scrollbars: true,
+            trashcan: true
+        });
+
+        // ۴. تابع آپدیت کردن پیش‌نمایش زنده
+        function updatePreview() {
+            // دریافت کدهای تولید شده از بلوک‌ها
+            const blocksCode = htmlGenerator.workspaceToCode(workspace);
+            
+            // دریافت تنظیمات رنگ از بخش تنظیمات اولیه
+            const bg = document.getElementById('bgColor').value;
+            const fg = document.getElementById('fgColor').value;
+
+            // ساختن سند کامل HTML
+            const finalHtml = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { 
+                            background-color: ${bg}; 
+                            color: ${fg}; 
+                            font-family: sans-serif;
+                            padding: 10px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${blocksCode}
+                </body>
+                </html>
+            `;
+
+            // تزریق کد به داخل iframe برای نمایش زنده
+            const previewFrame = document.getElementById('previewFrame');
+            const previewDoc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+            previewDoc.open();
+            previewDoc.write(finalHtml);
+            previewDoc.close();
+        }
+
+        // گوش به زنگ بودن برای تغییرات در بلوک‌ها یا رنگ‌ها
+        workspace.addChangeListener(updatePreview);
+        document.getElementById('bgColor').addEventListener('input', updatePreview);
+        document.getElementById('fgColor').addEventListener('input', updatePreview);
+
+        // اجرای اولیه برای نمایش صفحه خالی
+        updatePreview();
+    </script>
+</body>
+</html>
